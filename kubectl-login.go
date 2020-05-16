@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -36,6 +37,7 @@ import (
 type oidcService struct {
 	ctx        context.Context
 	provider   *oidc.Provider
+	host       string
 	clientid   string
 	issuer     string
 	verifier   *oidc.IDTokenVerifier
@@ -45,12 +47,22 @@ type oidcService struct {
 }
 
 func main() {
-	oidc := &oidcService{
-		clientid: "cli-local",
-		issuer:   "https://k8sou.apps.192-168-2-144.nip.io/auth/idp/k8s-login-cli",
+	host := flag.String("host", "", "openunison hostname (and port if needed)")
+
+	flag.Parse()
+
+	if *host == "" {
+		fmt.Println("No host set")
+		os.Exit(2)
 	}
 
-	browser.OpenURL("https://k8sou.apps.192-168-2-144.nip.io/cli-login")
+	oidc := &oidcService{
+		clientid: "cli-local",
+		issuer:   "https://" + *host + "/auth/idp/k8s-login-cli",
+		host:     *host,
+	}
+
+	browser.OpenURL("https://" + oidc.host + "/cli-login")
 
 	m := http.NewServeMux()
 	m.HandleFunc("/", oidc.oidcStartLogin)
@@ -106,16 +118,13 @@ func (oidcSvc *oidcService) oidcHandleRedirect(w http.ResponseWriter, r *http.Re
 		http.Error(w, "No id_token field in oauth2 token.", http.StatusInternalServerError)
 		return
 	}
-	idToken, err := oidcSvc.verifier.Verify(oidcSvc.ctx, rawIDToken)
+	_, err = oidcSvc.verifier.Verify(oidcSvc.ctx, rawIDToken)
 	if err != nil {
 		http.Error(w, "Failed to verify ID Token: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Write([]byte(idToken.Subject))
 
-	//fmt.Println(rawIDToken)
-
-	httpReq, err := http.NewRequest("GET", "https://k8sou.apps.192-168-2-144.nip.io/k8slogin/token/user", nil)
+	httpReq, err := http.NewRequest("GET", "https://"+oidcSvc.host+"/k8slogin/token/user", nil)
 
 	if err != nil {
 		panic(err)
@@ -135,15 +144,11 @@ func (oidcSvc *oidcService) oidcHandleRedirect(w http.ResponseWriter, r *http.Re
 		panic(err)
 	}
 
-	fmt.Println(string(data))
-
 	var objmap map[string]json.RawMessage
 	err = json.Unmarshal(data, &objmap)
-	fmt.Println(string(objmap["displayName"]))
-	fmt.Println(objmap["token"])
+
 	var tokenmap map[string]json.RawMessage
 	err = json.Unmarshal(objmap["token"], &tokenmap)
-	fmt.Println(tokenmap)
 
 	userName := byte2string(objmap["displayName"])
 	k8sURL := byte2string(tokenmap["kubectl Windows Command"])
@@ -166,24 +171,6 @@ func (oidcSvc *oidcService) oidcHandleRedirect(w http.ResponseWriter, r *http.Re
 	} else {
 		k8sCert = ""
 	}
-
-	fmt.Println(userName)
-	fmt.Println(k8sURL)
-	fmt.Println(ctxName)
-	fmt.Println(refreshToken)
-	fmt.Println(userIDToken)
-	fmt.Println(ouCert)
-	fmt.Println(k8sCert)
-
-	/*var kubeconfig *string
-	if home := homeDir(); home != "" {
-		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-	} else {
-		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-	}
-	flag.Parse()*/
-
-	//config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 
 	pathOptions := clientcmd.NewDefaultPathOptions()
 	curCfg, err := pathOptions.GetStartingConfig()
@@ -218,7 +205,7 @@ func (oidcSvc *oidcService) oidcHandleRedirect(w http.ResponseWriter, r *http.Re
 	authInfo.AuthProvider.Config["client-id"] = "kubernetes"
 	authInfo.AuthProvider.Config["id-token"] = userIDToken
 	authInfo.AuthProvider.Config["idp-certificate-authority-data"] = ouCert
-	authInfo.AuthProvider.Config["idp-issuer-url"] = "https://k8sou.apps.192-168-2-144.nip.io/auth/idp/k8sIdp"
+	authInfo.AuthProvider.Config["idp-issuer-url"] = "https://" + oidcSvc.host + "/auth/idp/k8sIdp"
 	authInfo.AuthProvider.Config["refresh-token"] = refreshToken
 
 	context, ok := curCfg.Contexts[ctxName]
@@ -236,6 +223,10 @@ func (oidcSvc *oidcService) oidcHandleRedirect(w http.ResponseWriter, r *http.Re
 	clientConfig := clientcmd.NewDefaultClientConfig(*curCfg, nil)
 
 	clientcmd.ModifyConfig(clientConfig.ConfigAccess(), *curCfg, false)
+
+	http.Redirect(w, r, "https://"+oidcSvc.host+"/auth/forms/cli-login-finished.jsp", http.StatusFound)
+
+	fmt.Println("kubectl configuration created")
 
 	go oidcSvc.httpServer.Shutdown(oidcSvc.ctx)
 
