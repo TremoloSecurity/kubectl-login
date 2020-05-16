@@ -228,6 +228,8 @@ func (oidcSvc *oidcService) oidcHandleRedirect(w http.ResponseWriter, r *http.Re
 
 	fmt.Println("kubectl configuration created")
 
+	//time.Sleep(time.Second * 10)
+
 	go oidcSvc.httpServer.Shutdown(oidcSvc.ctx)
 
 }
