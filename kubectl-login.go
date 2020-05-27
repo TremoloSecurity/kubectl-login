@@ -18,10 +18,12 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"os"
 	"strings"
@@ -33,6 +35,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
+
 type oidcService struct {
 	ctx        context.Context
 	provider   *oidc.Provider
@@ -42,6 +46,19 @@ type oidcService struct {
 	config     oauth2.Config
 	state      string
 	httpServer *http.Server
+}
+
+func randSeq(n int) string {
+	max := big.NewInt(int64(len(letters)))
+	b := make([]rune, n)
+	for i := range b {
+		n, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			panic(err)
+		}
+		b[i] = letters[n.Int64()]
+	}
+	return string(b)
 }
 
 func main() {
@@ -84,7 +101,7 @@ func (oidcSvc *oidcService) oidcStartLogin(w http.ResponseWriter, r *http.Reques
 		Scopes:      []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 
-	oidcSvc.state = "foobar" // Don't do this in production.
+	oidcSvc.state = randSeq(24)
 
 	http.Redirect(w, r, oidcSvc.config.AuthCodeURL(oidcSvc.state), http.StatusFound)
 
