@@ -28,6 +28,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	oidc "github.com/coreos/go-oidc"
 	"github.com/pkg/browser"
@@ -87,7 +88,15 @@ func main() {
 
 	oidc.httpServer = &http.Server{Addr: "127.0.0.1:8400", Handler: m}
 
+	go func() {
+		time.Sleep(30 * time.Second)
+		fmt.Println("Timeout wating for login")
+		os.Exit(1)
+
+	}()
+
 	oidc.httpServer.ListenAndServe()
+	os.Exit(0)
 
 }
 

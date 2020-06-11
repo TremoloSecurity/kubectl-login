@@ -1,0 +1,64 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  # 'name' must match the filename of the manifest.
+  name: restart
+spec:
+  # 'version' is a valid semantic version string (see semver.org)
+  version: "_VERSION_"
+  # 'homepage' usually links to the GitHub repository of the plugin
+  homepage: https://github.com/TremoloSecurity/kubectl-login
+  # 'shortDescription' explains what the plugin does in only a few words
+  shortDescription: "login to the cluster from the command line with OpenUnison"
+  description: |
+    Launches a browser to login to the cluster from the cli.  
+  # 'platforms' specify installation methods for various platforms (os/arch)
+  platforms:
+  - selector:
+      matchExpressions:
+      - key: "os"
+        operator: "In"
+        values:
+        - darwin
+    # 'uri' specifies .zip or .tar.gz archive URL of a plugin
+    uri: https://nexus.tremolo.io/repository/oulogin/oulogin-_VERSION_-macos.zip
+    # 'sha256' is the sha256sum of the url above
+    sha256: _MAC_SHA_
+    # 'files' lists which files should be extracted out from downloaded archive
+    files:
+    - from: "oulogin"
+      to: "./oulogin"
+    # 'bin' specifies the path to the the plugin executable among extracted files
+    bin: oulogin
+  - selector:
+      matchExpressions:
+      - key: "os"
+        operator: "In"
+        values:
+        - linux
+    # 'uri' specifies .zip or .tar.gz archive URL of a plugin
+    uri: https://nexus.tremolo.io/repository/oulogin/oulogin-_VERSION_-linux.zip
+    # 'sha256' is the sha256sum of the url above
+    sha256: _LINUX_SHA_
+    # 'files' lists which files should be extracted out from downloaded archive
+    files:
+    - from: "oulogin"
+      to: "./oulogin"
+    # 'bin' specifies the path to the the plugin executable among extracted files
+    bin: oulogin
+  - selector:
+      matchExpressions:
+      - key: "os"
+        operator: "In"
+        values:
+        - windows
+    # 'uri' specifies .zip or .tar.gz archive URL of a plugin
+    uri: https://nexus.tremolo.io/repository/oulogin/oulogin-_VERSION_-win.zip
+    # 'sha256' is the sha256sum of the url above
+    sha256: _WIN_SHA_
+    # 'files' lists which files should be extracted out from downloaded archive
+    files:
+    - from: "oulogin.exe"
+      to: "./oulogin.exe"
+    # 'bin' specifies the path to the the plugin executable among extracted files
+    bin: oulogin.exe
