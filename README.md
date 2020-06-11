@@ -6,6 +6,8 @@ This plugin will launch a browser to log you into your Kubernetes cluster from t
 2. Creates a context and user in your kubectl configuration
 3. Sets the new configuration as your default context
 
+![Video of CLI Login](img/login-cli.gif)
+
 There is no pre-configuration that needs to happen.  OpenUnison provides all the configuration for your cluster, just as if logging into OpenUnison and getting the configuration from the token screen and pasting it into your cli window.
 
 ## Installation
