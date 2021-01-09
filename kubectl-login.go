@@ -79,11 +79,24 @@ func main() {
 
 	flag.Parse()
 
+	pathOptions := clientcmd.NewDefaultPathOptions()
+	curCfg, err := pathOptions.GetStartingConfig()
+
+	if err != nil {
+		panic(err)
+	}
+
 	if *host == "" && *ctx == "" {
-		fmt.Println("No host or context set")
-		os.Exit(2)
-	} else if *host == "" && *ctx != "" {
-		hostName, err := findHostFromContext(*ctx)
+		if curCfg.CurrentContext == "" {
+			fmt.Println("No host or context set")
+			os.Exit(2)
+		} else {
+			ctx = &curCfg.CurrentContext
+		}
+	}
+
+	if *host == "" && *ctx != "" {
+		hostName, err := findHostFromContext(*ctx, curCfg)
 		if err != nil {
 			panic(err)
 		}
@@ -91,7 +104,7 @@ func main() {
 		host = &hostName
 	}
 
-	if checkCurrentConfig(*host) {
+	if checkCurrentConfig(*host, curCfg) {
 		fmt.Println("Invalid context or does not exist, launching browser to login")
 		runOidc(*host)
 	} else {
@@ -100,13 +113,7 @@ func main() {
 
 }
 
-func findHostFromContext(ctx string) (string, error) {
-	pathOptions := clientcmd.NewDefaultPathOptions()
-	curCfg, err := pathOptions.GetStartingConfig()
-
-	if err != nil {
-		panic(err)
-	}
+func findHostFromContext(ctx string, curCfg *api.Config) (string, error) {
 
 	cfgCtx := curCfg.Contexts[ctx]
 
@@ -133,13 +140,7 @@ func findHostFromContext(ctx string) (string, error) {
 
 }
 
-func checkCurrentConfig(host string) bool {
-	pathOptions := clientcmd.NewDefaultPathOptions()
-	curCfg, err := pathOptions.GetStartingConfig()
-
-	if err != nil {
-		panic(err)
-	}
+func checkCurrentConfig(host string, curCfg *api.Config) bool {
 
 	// determine expected issuer
 	openunisonIssuerUrl := "https://" + host + "/auth/idp/k8sIdp"
