@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,11 +75,20 @@ func randSeq(n int) string {
 func main() {
 	host := flag.String("host", "", "openunison hostname (and port if needed)")
 
+	ctx := flag.String("context", "", "an existing context in the kubectl configuration file")
+
 	flag.Parse()
 
-	if *host == "" {
-		fmt.Println("No host set")
+	if *host == "" && *ctx == "" {
+		fmt.Println("No host or context set")
 		os.Exit(2)
+	} else if *host == "" && *ctx != "" {
+		hostName, err := findHostFromContext(*ctx)
+		if err != nil {
+			panic(err)
+		}
+
+		host = &hostName
 	}
 
 	if checkCurrentConfig(*host) {
@@ -86,6 +96,39 @@ func main() {
 		runOidc(*host)
 	} else {
 		fmt.Println("kubectl is ready to use")
+	}
+
+}
+
+func findHostFromContext(ctx string) (string, error) {
+	pathOptions := clientcmd.NewDefaultPathOptions()
+	curCfg, err := pathOptions.GetStartingConfig()
+
+	if err != nil {
+		panic(err)
+	}
+
+	cfgCtx := curCfg.Contexts[ctx]
+
+	if cfgCtx == nil {
+		return "", fmt.Errorf("context %s does not exist", ctx)
+	}
+
+	authData := curCfg.AuthInfos[cfgCtx.AuthInfo]
+
+	if authData == nil {
+		return "", fmt.Errorf("user %s does not exist", cfgCtx.AuthInfo)
+	}
+
+	if authData.AuthProvider != nil && authData.AuthProvider.Name == "oidc" {
+		issuerURL := authData.AuthProvider.Config["idp-issuer-url"]
+		parsedIssuerURL, err := url.Parse(issuerURL)
+		if err != nil {
+			panic(err)
+		}
+		return parsedIssuerURL.Host, nil
+	} else {
+		return "", fmt.Errorf("user %s is not oidc", cfgCtx.AuthInfo)
 	}
 
 }
