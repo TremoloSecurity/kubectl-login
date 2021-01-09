@@ -27,14 +27,21 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	oidc "github.com/coreos/go-oidc"
 	"github.com/pkg/browser"
 	"golang.org/x/oauth2"
+	"k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/util/homedir"
+
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
@@ -74,10 +81,88 @@ func main() {
 		os.Exit(2)
 	}
 
+	if checkCurrentConfig(*host) {
+		fmt.Println("Invalid context or does not exist, launching browser to login")
+		runOidc(*host)
+	} else {
+		fmt.Println("kubectl is ready to use")
+	}
+
+}
+
+func checkCurrentConfig(host string) bool {
+	pathOptions := clientcmd.NewDefaultPathOptions()
+	curCfg, err := pathOptions.GetStartingConfig()
+
+	if err != nil {
+		panic(err)
+	}
+
+	// determine expected issuer
+	openunisonIssuerUrl := "https://" + host + "/auth/idp/k8sIdp"
+
+	fmt.Printf("Checking for existing issuer %s\n", openunisonIssuerUrl)
+
+	for userName, authData := range curCfg.AuthInfos {
+		if authData.AuthProvider != nil && authData.AuthProvider.Name == "oidc" {
+			fmt.Printf("checking %s %s\n", userName, authData.AuthProvider.Config["idp-issuer-url"])
+			if authData.AuthProvider.Config != nil && authData.AuthProvider.Config["idp-issuer-url"] == openunisonIssuerUrl {
+				// found the user, need to find the context
+				for contextName, ctx := range curCfg.Contexts {
+					if ctx.AuthInfo == userName {
+						fmt.Printf("Setting context %s\n", contextName)
+						curCfg.CurrentContext = contextName
+
+						// save the config
+						clientConfig := clientcmd.NewDefaultClientConfig(*curCfg, nil)
+						clientcmd.ModifyConfig(clientConfig.ConfigAccess(), *curCfg, false)
+
+						// reload and attempt to get the version to force a reload
+						var kubeconfig *string
+						if home := homedir.HomeDir(); home != "" {
+							kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+						} else {
+							kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+						}
+						flag.Parse()
+
+						config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+						if err != nil {
+							panic(err)
+						}
+						clientset, err := kubernetes.NewForConfig(config)
+						if err != nil {
+							panic(err)
+						}
+
+						fmt.Printf("Checking for valid token\n")
+						_, err = clientset.CoreV1().Namespaces().Get(context.TODO(), "default", metav1.GetOptions{})
+						if err != nil {
+							if nerr, ok := err.(*errors.StatusError); ok && nerr.ErrStatus.Code == 403 {
+								return false
+							} else {
+								return true
+							}
+						} else {
+							return false
+						}
+
+					}
+				}
+			}
+		}
+
+	}
+
+	return true
+}
+
+func runOidc(host string) {
+	fmt.Printf("Starting OpenID Connect for host %s\n", host)
 	oidc := &oidcService{
 		clientid: "cli-local",
-		issuer:   "https://" + *host + "/auth/idp/k8s-login-cli",
-		host:     *host,
+		issuer:   "https://" + host + "/auth/idp/k8s-login-cli",
+		host:     host,
 	}
 
 	browser.OpenURL("https://" + oidc.host + "/cli-login")
@@ -97,7 +182,6 @@ func main() {
 
 	oidc.httpServer.ListenAndServe()
 	os.Exit(0)
-
 }
 
 func (oidcSvc *oidcService) oidcStartLogin(w http.ResponseWriter, r *http.Request) {
