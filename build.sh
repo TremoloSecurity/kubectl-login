@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export VERSION="0.0.4b1"
+export VERSION="0.0.4b2"
 
 rm -rf target
 mkdir -p target

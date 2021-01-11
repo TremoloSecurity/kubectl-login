@@ -73,7 +73,7 @@ func randSeq(n int) string {
 }
 
 func main() {
-	fmt.Println("oulogin 0.0.4b1")
+	fmt.Println("oulogin 0.0.4b2")
 	host := flag.String("host", "", "openunison hostname (and port if needed)")
 
 	ctx := flag.String("context", "", "an existing context in the kubectl configuration file")
@@ -135,6 +135,11 @@ func findHostFromContext(ctx string, curCfg *api.Config) (string, error) {
 		if err != nil {
 			return "", err
 		}
+
+		if !strings.HasPrefix(parsedIssuerURL.Path, "/auth/idp/") {
+			return "", fmt.Errorf("context %s is not OpenUnison", ctx)
+		}
+
 		return parsedIssuerURL.Host, nil
 	} else {
 		return "", fmt.Errorf("user %s is not oidc", cfgCtx.AuthInfo)
