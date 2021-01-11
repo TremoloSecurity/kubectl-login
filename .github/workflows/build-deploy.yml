@@ -4,6 +4,6 @@ jobs:
   build:
     runs-on: ubuntu-18.04
     steps:
-      - uses: vactions/checkout@v1
+      - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
       - run: ./build.sh oulogin-betas
