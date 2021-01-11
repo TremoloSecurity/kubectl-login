@@ -89,7 +89,7 @@ func main() {
 	if *host == "" && *ctx == "" {
 		if curCfg.CurrentContext == "" {
 			fmt.Println("No host or context set")
-			os.Exit(2)
+			os.Exit(1)
 		} else {
 			ctx = &curCfg.CurrentContext
 		}
@@ -98,7 +98,8 @@ func main() {
 	if *host == "" && *ctx != "" {
 		hostName, err := findHostFromContext(*ctx, curCfg)
 		if err != nil {
-			panic(err)
+			fmt.Println(err.Error())
+			os.Exit(1)
 		}
 
 		host = &hostName
@@ -131,7 +132,7 @@ func findHostFromContext(ctx string, curCfg *api.Config) (string, error) {
 		issuerURL := authData.AuthProvider.Config["idp-issuer-url"]
 		parsedIssuerURL, err := url.Parse(issuerURL)
 		if err != nil {
-			panic(err)
+			return "", err
 		}
 		return parsedIssuerURL.Host, nil
 	} else {
