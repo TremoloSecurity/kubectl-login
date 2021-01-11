@@ -311,6 +311,8 @@ func (oidcSvc *oidcService) oidcHandleRedirect(w http.ResponseWriter, r *http.Re
 	refreshToken := byte2string(tokenmap["refresh_token"])
 	userIDToken := byte2string(tokenmap["id_token"])
 
+	userName = userName + "@" + ctxName
+
 	var ouCert, k8sCert string
 
 	data, ok = tokenmap["OpenUnison Server CA Certificate"]
@@ -352,14 +354,23 @@ func (oidcSvc *oidcService) oidcHandleRedirect(w http.ResponseWriter, r *http.Re
 		curCfg.AuthInfos[userName] = authInfo
 	}
 
-	authInfo.AuthProvider = &api.AuthProviderConfig{
-		Name:   "oidc",
-		Config: make(map[string]string),
+	if authInfo.AuthProvider == nil || authInfo.AuthProvider.Name != "oidc" {
+		authInfo.AuthProvider = &api.AuthProviderConfig{
+			Name:   "oidc",
+			Config: make(map[string]string),
+		}
 	}
 
 	authInfo.AuthProvider.Config["client-id"] = "kubernetes"
+	authInfo.AuthProvider.Config["client-secret"] = ""
 	authInfo.AuthProvider.Config["id-token"] = userIDToken
-	authInfo.AuthProvider.Config["idp-certificate-authority-data"] = ouCert
+	if authInfo.AuthProvider.Config["idp-certificate-authority-data"] == "" {
+		if ouCert != "" {
+			authInfo.AuthProvider.Config["idp-certificate-authority-data"] = ouCert
+		}
+	} else {
+		authInfo.AuthProvider.Config["idp-certificate-authority-data"] = ouCert
+	}
 	authInfo.AuthProvider.Config["idp-issuer-url"] = "https://" + oidcSvc.host + "/auth/idp/k8sIdp"
 	authInfo.AuthProvider.Config["refresh-token"] = refreshToken
 
