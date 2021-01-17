@@ -7,7 +7,8 @@ spec:
   homepage: https://github.com/TremoloSecurity/kubectl-login
   shortDescription: "Login to a cluster via OpenUnison"
   description: |
-    Launches a browser to login to the cluster via OpenUnison.  OpenUnison's certificate MUST be trusted by the local system.  
+    Launches a browser to login to the cluster via OpenUnison.  OpenUnison's 
+    certificate MUST be trusted by the local system.  
   platforms:
   - selector:
       matchExpressions:
