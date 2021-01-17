@@ -1,24 +1,17 @@
-module main
+module kubectl-login
 
-go 1.14
+go 1.15
 
 require (
-	cloud.google.com/go v0.58.0 // indirect
-	github.com/Azure/go-autorest/autorest v0.10.2 // indirect
 	github.com/coreos/go-oidc v2.2.1+incompatible
-	github.com/google/btree v1.0.0 // indirect
-	github.com/gophercloud/gophercloud v0.11.0 // indirect
-	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
-	github.com/imdario/mergo v0.3.9 // indirect
-	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
-	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
-	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
-	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9 // indirect
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1 // indirect
+	github.com/imdario/mergo v0.3.11 // indirect
+	github.com/pkg/browser v0.0.0-20201207095918-0426ae3fba23
+	github.com/pquerna/cachecontrol v0.0.0-20201205024021-ac21108117ac // indirect
+	golang.org/x/oauth2 v0.0.0-20201208152858-08078c50e5b5
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
-	k8s.io/api v0.18.3 // indirect
-	k8s.io/client-go v0.0.0-20200515122352-806d15d65454
-	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451 // indirect
-	sigs.k8s.io/structured-merge-diff v1.0.2 // indirect
+	k8s.io/api v0.19.1
+	k8s.io/apimachinery v0.19.1
+	k8s.io/client-go v0.19.1
+	k8s.io/klog v1.0.0 // indirect
+	k8s.io/utils v0.0.0-20201110183641-67b214c5f920 // indirect
 )

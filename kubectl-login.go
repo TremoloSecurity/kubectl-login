@@ -26,15 +26,23 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
+	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	oidc "github.com/coreos/go-oidc"
 	"github.com/pkg/browser"
 	"golang.org/x/oauth2"
+	"k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/util/homedir"
+
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890")
@@ -65,19 +73,147 @@ func randSeq(n int) string {
 }
 
 func main() {
+	fmt.Println("oulogin 0.0.4b2")
 	host := flag.String("host", "", "openunison hostname (and port if needed)")
+
+	ctx := flag.String("context", "", "an existing context in the kubectl configuration file")
 
 	flag.Parse()
 
-	if *host == "" {
-		fmt.Println("No host set")
-		os.Exit(2)
+	pathOptions := clientcmd.NewDefaultPathOptions()
+	curCfg, err := pathOptions.GetStartingConfig()
+
+	if err != nil {
+		panic(err)
 	}
 
+	if *host == "" && *ctx == "" {
+		if curCfg.CurrentContext == "" {
+			fmt.Println("No host or context set")
+			os.Exit(1)
+		} else {
+			ctx = &curCfg.CurrentContext
+		}
+	}
+
+	if *host == "" && *ctx != "" {
+		hostName, err := findHostFromContext(*ctx, curCfg)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+
+		host = &hostName
+	}
+
+	if checkCurrentConfig(*host, curCfg) {
+		fmt.Println("Invalid context or does not exist, launching browser to login")
+		runOidc(*host)
+	} else {
+		fmt.Println("kubectl is ready to use")
+	}
+
+}
+
+func findHostFromContext(ctx string, curCfg *api.Config) (string, error) {
+
+	cfgCtx := curCfg.Contexts[ctx]
+
+	if cfgCtx == nil {
+		return "", fmt.Errorf("context %s does not exist", ctx)
+	}
+
+	authData := curCfg.AuthInfos[cfgCtx.AuthInfo]
+
+	if authData == nil {
+		return "", fmt.Errorf("user %s does not exist", cfgCtx.AuthInfo)
+	}
+
+	if authData.AuthProvider != nil && authData.AuthProvider.Name == "oidc" {
+		issuerURL := authData.AuthProvider.Config["idp-issuer-url"]
+		parsedIssuerURL, err := url.Parse(issuerURL)
+		if err != nil {
+			return "", err
+		}
+
+		if !strings.HasPrefix(parsedIssuerURL.Path, "/auth/idp/") {
+			return "", fmt.Errorf("context %s is not OpenUnison", ctx)
+		}
+
+		return parsedIssuerURL.Host, nil
+	} else {
+		return "", fmt.Errorf("user %s is not oidc", cfgCtx.AuthInfo)
+	}
+
+}
+
+func checkCurrentConfig(host string, curCfg *api.Config) bool {
+
+	// determine expected issuer
+	openunisonIssuerUrl := "https://" + host + "/auth/idp/k8sIdp"
+
+	fmt.Printf("Checking for existing issuer %s\n", openunisonIssuerUrl)
+
+	for userName, authData := range curCfg.AuthInfos {
+		if authData.AuthProvider != nil && authData.AuthProvider.Name == "oidc" {
+			fmt.Printf("checking %s %s\n", userName, authData.AuthProvider.Config["idp-issuer-url"])
+			if authData.AuthProvider.Config != nil && authData.AuthProvider.Config["idp-issuer-url"] == openunisonIssuerUrl {
+				// found the user, need to find the context
+				for contextName, ctx := range curCfg.Contexts {
+					if ctx.AuthInfo == userName {
+						fmt.Printf("Setting context %s\n", contextName)
+						curCfg.CurrentContext = contextName
+
+						// save the config
+						clientConfig := clientcmd.NewDefaultClientConfig(*curCfg, nil)
+						clientcmd.ModifyConfig(clientConfig.ConfigAccess(), *curCfg, false)
+
+						// reload and attempt to get the version to force a reload
+						var kubeconfig *string
+						if home := homedir.HomeDir(); home != "" {
+							kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+						} else {
+							kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+						}
+						flag.Parse()
+
+						config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+						if err != nil {
+							panic(err)
+						}
+						clientset, err := kubernetes.NewForConfig(config)
+						if err != nil {
+							panic(err)
+						}
+
+						fmt.Printf("Checking for valid token\n")
+						_, err = clientset.CoreV1().Namespaces().Get(context.TODO(), "default", metav1.GetOptions{})
+						if err != nil {
+							if nerr, ok := err.(*errors.StatusError); ok && nerr.ErrStatus.Code == 403 {
+								return false
+							} else {
+								return true
+							}
+						} else {
+							return false
+						}
+
+					}
+				}
+			}
+		}
+
+	}
+
+	return true
+}
+
+func runOidc(host string) {
+	fmt.Printf("Starting OpenID Connect for host %s\n", host)
 	oidc := &oidcService{
 		clientid: "cli-local",
-		issuer:   "https://" + *host + "/auth/idp/k8s-login-cli",
-		host:     *host,
+		issuer:   "https://" + host + "/auth/idp/k8s-login-cli",
+		host:     host,
 	}
 
 	browser.OpenURL("https://" + oidc.host + "/cli-login")
@@ -97,7 +233,6 @@ func main() {
 
 	oidc.httpServer.ListenAndServe()
 	os.Exit(0)
-
 }
 
 func (oidcSvc *oidcService) oidcStartLogin(w http.ResponseWriter, r *http.Request) {
@@ -182,6 +317,8 @@ func (oidcSvc *oidcService) oidcHandleRedirect(w http.ResponseWriter, r *http.Re
 	refreshToken := byte2string(tokenmap["refresh_token"])
 	userIDToken := byte2string(tokenmap["id_token"])
 
+	userName = userName + "@" + ctxName
+
 	var ouCert, k8sCert string
 
 	data, ok = tokenmap["OpenUnison Server CA Certificate"]
@@ -223,14 +360,23 @@ func (oidcSvc *oidcService) oidcHandleRedirect(w http.ResponseWriter, r *http.Re
 		curCfg.AuthInfos[userName] = authInfo
 	}
 
-	authInfo.AuthProvider = &api.AuthProviderConfig{
-		Name:   "oidc",
-		Config: make(map[string]string),
+	if authInfo.AuthProvider == nil || authInfo.AuthProvider.Name != "oidc" {
+		authInfo.AuthProvider = &api.AuthProviderConfig{
+			Name:   "oidc",
+			Config: make(map[string]string),
+		}
 	}
 
 	authInfo.AuthProvider.Config["client-id"] = "kubernetes"
+	authInfo.AuthProvider.Config["client-secret"] = ""
 	authInfo.AuthProvider.Config["id-token"] = userIDToken
-	authInfo.AuthProvider.Config["idp-certificate-authority-data"] = ouCert
+	if authInfo.AuthProvider.Config["idp-certificate-authority-data"] == "" {
+		if ouCert != "" {
+			authInfo.AuthProvider.Config["idp-certificate-authority-data"] = ouCert
+		}
+	} else {
+		authInfo.AuthProvider.Config["idp-certificate-authority-data"] = ouCert
+	}
 	authInfo.AuthProvider.Config["idp-issuer-url"] = "https://" + oidcSvc.host + "/auth/idp/k8sIdp"
 	authInfo.AuthProvider.Config["refresh-token"] = refreshToken
 
