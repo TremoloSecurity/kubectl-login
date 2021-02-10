@@ -71,7 +71,7 @@ func randSeq(n int) string {
 }
 
 func main() {
-	fmt.Println("oulogin 0.0.6b1")
+	fmt.Println("oulogin 0.0.6")
 	host := flag.String("host", "", "openunison hostname (and port if needed)")
 
 	ctx := flag.String("context", "", "an existing context in the kubectl configuration file")
