@@ -28,7 +28,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -39,7 +38,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/util/homedir"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,7 +71,7 @@ func randSeq(n int) string {
 }
 
 func main() {
-	fmt.Println("oulogin 0.0.5")
+	fmt.Println("oulogin 0.0.6")
 	host := flag.String("host", "", "openunison hostname (and port if needed)")
 
 	ctx := flag.String("context", "", "an existing context in the kubectl configuration file")
@@ -168,19 +166,11 @@ func checkCurrentConfig(host string, curCfg *api.Config) bool {
 						clientConfig := clientcmd.NewDefaultClientConfig(*curCfg, nil)
 						clientcmd.ModifyConfig(clientConfig.ConfigAccess(), *curCfg, false)
 
-						// reload and attempt to get the version to force a reload
-						var kubeconfig *string
-						if home := homedir.HomeDir(); home != "" {
-							kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-						} else {
-							kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-						}
-						flag.Parse()
-
-						config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+						config, err := clientConfig.ClientConfig()
 						if err != nil {
 							panic(err)
 						}
+
 						clientset, err := kubernetes.NewForConfig(config)
 						if err != nil {
 							panic(err)
