@@ -71,7 +71,7 @@ func randSeq(n int) string {
 }
 
 func main() {
-	fmt.Println("oulogin 0.0.6")
+	fmt.Println("oulogin 0.0.7")
 	host := flag.String("host", "", "openunison hostname (and port if needed)")
 
 	ctx := flag.String("context", "", "an existing context in the kubectl configuration file")
@@ -287,6 +287,12 @@ func (oidcSvc *oidcService) oidcHandleRedirect(w http.ResponseWriter, r *http.Re
 
 	if err != nil {
 		panic(err)
+	}
+
+	if httpResp.StatusCode != 200 {
+		http.Error(w, "Failed authentication with OpenUnison", http.StatusInternalServerError)
+		fmt.Printf("Could not complete authentication with OpenUnison, status code : %d, status message: %s\n", httpResp.StatusCode, httpResp.Status)
+		os.Exit(1)
 	}
 
 	data, err := ioutil.ReadAll(httpResp.Body)
