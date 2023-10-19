@@ -215,7 +215,7 @@ func runOidc(host string) {
 	oidc.httpServer = &http.Server{Addr: "127.0.0.1:8400", Handler: m}
 
 	go func() {
-		time.Sleep(30 * time.Second)
+		time.Sleep(5 * time.Minute)
 		fmt.Println("Timeout wating for login")
 		os.Exit(1)
 
