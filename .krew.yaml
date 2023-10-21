@@ -20,7 +20,7 @@ spec:
       matchLabels:
         os: windows
     {{addURIAndSha "https://nexus.tremolo.io/repository/oulogin/oulogin-{{ .TagName }}-win.zip"  .TagName  }}
-    bin: oulogin
+    bin: oulogin.exe
   shortDescription: "Login to a cluster via OpenUnison"
   description: |
     Launches a browser to login to the cluster via OpenUnison.  OpenUnison's 
