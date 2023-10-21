@@ -9,17 +9,17 @@ spec:
   - selector:
       matchLabels:
         os: darwin
-    {{addURIAndSha "https://nexus.tremolo.io/repository/oulogin/oulogin-{{ .TagName }}-macos.zip" {{ .TagName }} }}
+    {{addURIAndSha "https://nexus.tremolo.io/repository/oulogin/oulogin-{{ .TagName }}-macos.zip"  .TagName  }}
     bin: oulogin
   - selector:
       matchLabels:
         os: linux
-    {{addURIAndSha "https://nexus.tremolo.io/repository/oulogin/oulogin-{{ .TagName }}-linux.zip" {{ .TagName }} }}
+    {{addURIAndSha "https://nexus.tremolo.io/repository/oulogin/oulogin-{{ .TagName }}-linux.zip"  .TagName  }}
     bin: oulogin
   - selector:
       matchLabels:
         os: windows
-    {{addURIAndSha "https://nexus.tremolo.io/repository/oulogin/oulogin-{{ .TagName }}-win.zip" {{ .TagName }} }}
+    {{addURIAndSha "https://nexus.tremolo.io/repository/oulogin/oulogin-{{ .TagName }}-win.zip"  .TagName  }}
     bin: oulogin
   shortDescription: "Login to a cluster via OpenUnison"
   description: |
