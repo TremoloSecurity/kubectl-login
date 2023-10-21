@@ -1,5 +1,10 @@
 name: Build oulogin
-on: [push]
+on:
+  push:
+    branches:
+      - 'master'
+    tags:
+      - 'v*.*.*'
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -12,4 +17,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_ACCESS_SECRET }}
           aws-region: us-east-1
       - run: ./build.sh ${{ secrets.S3_DIR }}
+      - name: Update new version in krew-index
+        uses: rajatjindal/krew-release-bot@v0.0.46
         
